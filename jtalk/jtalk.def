@@ -143,3 +143,9 @@ openjtalk_setVoiceU162  @141
 openjtalk_speakToFile2  @142
 openjtalk_speakToFileSjis2  @143
 openjtalk_speakToFileU162   @144
+openjtalk_getAudioOutputDeviceList @145
+openjtalk_getAudioOutputDeviceListSjis @146
+openjtalk_getAudioOutputDeviceListU16 @147
+openjtalk_clearAudioDeviceList @148
+openjtalk_setAudioOutputDevice @149
+openjtalk_getAudioOutputDevice @150

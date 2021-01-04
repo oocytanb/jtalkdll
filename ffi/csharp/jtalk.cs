@@ -1,7 +1,9 @@
 using System;
 using System.IO;
 using System.Text;
+using System.Configuration;
 using System.Collections.Generic;
+using System.Linq;
 using System.Runtime.InteropServices;
 #if (PLATFORMx86)
 using SizeT = System.UInt32;
@@ -52,6 +54,33 @@ namespace JTalkDll
         }
     };
 
+    public class AudioDeviceInfo
+    {
+        private int index;
+        private String name;
+
+        internal AudioDeviceInfo(int index = -1, String nameStr = "Default Audio Device")
+        {
+            this.index = index;
+            this.name = nameStr;
+        }
+
+        internal int Index
+        {
+            get
+            {
+                return index;
+            }
+        }
+
+        internal String Name
+        {
+            get
+            {
+                return name;
+            }
+        }
+    };
 
     public class JTalkTTS : IDisposable
     {
@@ -75,6 +104,7 @@ namespace JTalkDll
             handle = openjtalk_initialize(voicePath, dicPath, voiceDirPath);
             check_openjtalk_object();
             generate_voice_list();
+            generate_audio_device_list();
         }
 
         /// <summary>
@@ -83,6 +113,7 @@ namespace JTalkDll
         ~JTalkTTS()
         {
             delete_voice_list();
+            delete_audio_device_list();
             this.Dispose();
         }
 
@@ -116,11 +147,26 @@ namespace JTalkDll
             public string name;
         };
 
+        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+        private class AudioDeviceList
+        {
+            public IntPtr succ;
+            public int index;
+            [MarshalAs(UnmanagedType.LPWStr)]
+            public string name;
+        };
+
         [DllImport(dll, CallingConvention = CallingConvention.StdCall, CharSet = CharSet.Unicode)]
         private extern static void openjtalk_clearHTSVoiceList(IntPtr handle, IntPtr list);
 
         [DllImport(dll, CallingConvention = CallingConvention.StdCall, CharSet = CharSet.Unicode, EntryPoint = "openjtalk_getHTSVoiceListU16")]
         private extern static IntPtr openjtalk_getHTSVoiceList(IntPtr handle);
+
+        [DllImport(dll, CallingConvention = CallingConvention.StdCall, CharSet = CharSet.Unicode)]
+        private extern static void openjtalk_clearAudioDeviceList(IntPtr handle, IntPtr list);
+
+        [DllImport(dll, CallingConvention = CallingConvention.StdCall, CharSet = CharSet.Unicode, EntryPoint = "openjtalk_getAudioOutputDeviceListU16")]
+        private extern static IntPtr openjtalk_getAudioOutputDeviceList(IntPtr handle);
 
         [DllImport(dll, CallingConvention = CallingConvention.StdCall, CharSet = CharSet.Unicode, EntryPoint = "openjtalk_initializeU16")]
         private extern static IntPtr openjtalk_initialize(String voice, String dic, String voiceDir);
@@ -221,6 +267,12 @@ namespace JTalkDll
         [DllImport(dll, CallingConvention = CallingConvention.StdCall, CharSet = CharSet.Unicode, EntryPoint = "openjtalk_getVoicePathU16")]
         private extern static IntPtr openjtalk_getVoicePath(IntPtr handle, [MarshalAsAttribute(UnmanagedType.LPWStr)] StringBuilder path);
 
+        [DllImport(dll, CallingConvention = CallingConvention.StdCall, CharSet = CharSet.Unicode)]
+        private extern static void openjtalk_setAudioOutputDevice(IntPtr handle, int device_index);
+
+        [DllImport(dll, CallingConvention = CallingConvention.StdCall, CharSet = CharSet.Unicode)]
+        private extern static int openjtalk_getAudioOutputDevice(IntPtr handle);
+
         [DllImport(dll, CallingConvention = CallingConvention.StdCall, CharSet = CharSet.Unicode, EntryPoint = "openjtalk_speakSyncU16")]
         private extern static void openjtalk_speakSync(IntPtr handle, String text);
 
@@ -268,6 +320,13 @@ namespace JTalkDll
         /// <para>JScriptで Enumerator() の引数に指定可能</para>
         /// </summary>
         private List<VoiceFileInfo> voices = new List<VoiceFileInfo>();
+
+        /// <summary>
+        /// <para>オーディオ出力デバイスのコレクション</para>
+        /// <para>VBScriptで For Each のグループに指定可能</para>
+        /// <para>JScriptで Enumerator() の引数に指定可能</para>
+        /// </summary>
+        private List<AudioDeviceInfo> audio_devices = new List<AudioDeviceInfo>();
 
         /// <summary>
         /// <para>openjtalk 構造体へのポインタがnullかどうか調べる。</para>
@@ -324,6 +383,50 @@ namespace JTalkDll
         }
 
         /// <summary>
+        /// <para>オーディオ出力デバイスのリストを生成する。</para>
+        /// <para>使用後はdelete_audio_device_listを使って解放する。</para>
+        /// </summary>
+        private void generate_audio_device_list()
+        {
+            check_openjtalk_object();
+            if (audio_devices != null)
+            {
+                audio_devices.Clear();
+            }
+            else
+            {
+                audio_devices = new List<AudioDeviceInfo>();
+            }
+            audio_devices.Add(new AudioDeviceInfo());
+
+            var list = new AudioDeviceList();
+            var ptr = openjtalk_getAudioOutputDeviceList(handle);
+            var top = ptr;
+            if (top != IntPtr.Zero)
+            {
+                do
+                {
+                    list = (AudioDeviceList)Marshal.PtrToStructure(ptr, list.GetType());
+                    var index = list.index;
+                    var name = list.name.ToString();
+                    audio_devices.Add(new AudioDeviceInfo(index, name));
+                    ptr = list.succ;
+                }
+                while (ptr != IntPtr.Zero);
+                openjtalk_clearAudioDeviceList(handle, top);
+            }
+        }
+
+        /// <summary>
+        /// <para>オーディオデバイスのリストを解放する。</para>
+        /// </summary>
+        private void delete_audio_device_list()
+        {
+            check_openjtalk_object();
+            audio_devices.Clear();
+        }
+
+        /// <summary>
         /// <para>クラスのリフレッシュを行う。 </para>
         /// <para>・設定のクリア</para>
         /// <para>・設定ファイルがあれば再読み込み</para>
@@ -332,6 +435,8 @@ namespace JTalkDll
         {
             check_openjtalk_object();
             openjtalk_refresh(handle);
+            delete_audio_device_list();
+            generate_audio_device_list();
         }
 
         /// <summary>
@@ -346,6 +451,21 @@ namespace JTalkDll
             get
             {
                 return voices;
+            }
+        }
+
+        /// <summary>
+        /// オーディオ出力デバイスのコレクション
+        /// </summary>
+        public List<AudioDeviceInfo> AudioOutputDevices
+        {
+            /// <summary>
+            /// オーディオ出力デバイスのコレクションを取得する
+            /// </summary>
+            /// <returns>オーディオ出力デバイスのコレクション</returns>
+            get
+            {
+                return audio_devices;
             }
         }
 
@@ -1004,6 +1124,29 @@ namespace JTalkDll
                     return null;
                 }
                 return buff.ToString();
+            }
+        }
+
+        /// <summary>
+        /// <para>プロパティ</para>
+        /// <para>オーディオ出力デバイスの設定</para>
+        /// </summary>
+        public int AudioOutputDevice
+        {
+            /// <summary>
+            /// <para>オーディオ出力デバイスの設定</para>
+            /// </summary>
+            /// <param name="value">オーディオ出力デバイスのインデックス値</param>
+            set
+            {
+                check_openjtalk_object();
+                openjtalk_setAudioOutputDevice(handle, value);
+            }
+
+            get
+            {
+                check_openjtalk_object();
+                return openjtalk_getAudioOutputDevice(handle);
             }
         }
 

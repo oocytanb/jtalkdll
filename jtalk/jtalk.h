@@ -186,6 +186,25 @@ OPENJTALK_DLL_API char16_t *OPENJTALK_CONVENTION openjtalk_getHTSVoiceNameU16(Op
 
 /******************************************************************/
 
+typedef struct AudioDeviceList_tag
+{
+	struct AudioDeviceList_tag* succ;
+	int index;
+	union {
+		char *nameSjis;
+		char *name;
+		char16_t *nameU16;
+	};
+} AudioDeviceList;
+
+OPENJTALK_DLL_API AudioDeviceList *OPENJTALK_CONVENTION openjtalk_getAudioOutputDeviceList(OpenJTalk *oj);
+OPENJTALK_DLL_API AudioDeviceList *OPENJTALK_CONVENTION openjtalk_getAudioOutputDeviceListSjis(OpenJTalk *oj);
+OPENJTALK_DLL_API AudioDeviceList *OPENJTALK_CONVENTION openjtalk_getAudioOutputDeviceListU16(OpenJTalk *oj);
+
+OPENJTALK_DLL_API void OPENJTALK_CONVENTION openjtalk_clearAudioDeviceList(OpenJTalk *oj, AudioDeviceList *list);
+
+/******************************************************************/
+
 // 初期化
 OPENJTALK_DLL_API OpenJTalk *OPENJTALK_CONVENTION openjtalk_initialize(const char *voice, const char *dic, const char *voiceDir);
 OPENJTALK_DLL_API OpenJTalk *OPENJTALK_CONVENTION openjtalk_initializeSjis(const char *voice, const char *dic, const char *voiceDir);
@@ -324,6 +343,10 @@ OPENJTALK_DLL_API char16_t *OPENJTALK_CONVENTION openjtalk_getVoicePathU16(OpenJ
 OPENJTALK_DLL_API char *OPENJTALK_CONVENTION openjtalk_getFullVoicePath(OpenJTalk *oj, const char *path, char *buffer);
 OPENJTALK_DLL_API char *OPENJTALK_CONVENTION openjtalk_getFullVoicePathSjis(OpenJTalk *oj, const char *path, char *buffer);
 OPENJTALK_DLL_API char16_t *OPENJTALK_CONVENTION openjtalk_getFullVoicePathU16(OpenJTalk *oj, const char16_t *path, char16_t *buffer);
+
+// オーディオ出力デバイス。インデックスが負の値の場合は、デフォルトの出力デバイスとなる。
+OPENJTALK_DLL_API void OPENJTALK_CONVENTION openjtalk_setAudioOutputDevice(OpenJTalk *oj, int device_index);
+OPENJTALK_DLL_API int OPENJTALK_CONVENTION openjtalk_getAudioOutputDevice(OpenJTalk *oj);
 
 // 同期発声。完了するまでこの関数から戻らない。
 OPENJTALK_DLL_API void OPENJTALK_CONVENTION openjtalk_speakSync(OpenJTalk *oj, const char *text);

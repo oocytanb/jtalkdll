@@ -441,6 +441,406 @@ namespace JTalkCom
 	};
 
 	/// <summary>
+	/// オーディオデバイスデータのインターフェイス
+	/// </summary>
+	[Guid("98F72DE5-7A08-44C1-B1AE-5E8E14250D84")]
+	[InterfaceType(ComInterfaceType::InterfaceIsDual)] public interface class IAudioDeviceInfo
+	{
+		property int Index { int get(); }
+		property System::String ^Name { System::String ^get(); }
+	};
+
+	/// <summary>
+	/// <para>オーディオデバイスデータクラス</para>
+	/// </summary>
+	[ComVisible(true)]
+#if defined(_x64_)
+	[Guid("4C9E100D-0D4E-4973-A4CB-917A22578D2F")]
+#else
+	[Guid("8B8FACD8-5529-4E19-8055-5A7FD96C1A87")]
+#endif
+	[ClassInterface(ClassInterfaceType::None)]
+	[ComDefaultInterface(IVoiceFileInfo::typeid)] public ref class AudioDeviceInfo : IAudioDeviceInfo
+	{
+
+	internal:
+		/// <summary>
+		/// オーディオデバイスのインデックス
+		/// </summary>
+		int index;
+
+		/// <summary>
+		/// オーディオデバイスの名前
+		/// </summary>
+		System::String ^name;
+
+	public:
+		/// <summary>
+		/// <para>オブジェクトの文字列化</para>
+		/// <para>オーディオデバイスの情報を返す</para>
+		/// </summary>
+		/// <returns>オーディオデバイスの情報</returns>
+		virtual System::String ^ToString() override
+		{
+			return System::String::Format("{0}: {1}", this->index, this->name);
+		}
+
+		/// <summary>
+		/// プロパティ：オーディオデバイスのインデックス
+		/// </summary>
+		property int Index{
+			/// <summary>
+			/// オーディオデバイスのインデックスを取得する
+			/// </summary>
+			/// <returns></returns>
+			virtual int get() {
+				return this->index;
+			}
+		}
+
+		/// <summary>
+		/// オーディオデバイスの名前
+		/// </summary>
+		property System::String ^Name {
+			/// <summary>
+			/// オーディオデバイスの名前を取得する
+			/// </summary>
+			/// <returns></returns>
+			virtual System::String ^get() {
+				return this->name;
+			}
+		}
+
+		/// <summary>
+		/// <para>引数がString^型のコンストラクタ</para>
+		/// </summary>
+		/// <param name="index">オーディオデバイスのインデックス</param>
+		/// <param name="name">オーディオデバイスの名前</param>
+		AudioDeviceInfo(int index, System::String ^name)
+		{
+			this->index = index;
+			this->name = name;
+		}
+
+		/// <summary>
+		/// <para>引数がchar*型のコンストラクタ</para>
+		/// </summary>
+		/// <param name="index">オーディオデバイスのインデックス</param>
+		/// <param name="name">オーディオデバイスの名前</param>
+		AudioDeviceInfo(int index, char* name)
+		{
+			this->index = index;
+			this->name = gcnew System::String(name);
+		}
+
+		/// <summary>
+		/// <para>引数がwchar_t*型のコンストラクタ</para>
+		/// </summary>
+		/// <param name="index">オーディオデバイスのインデックス</param>
+		/// <param name="name">オーディオデバイスの名前</param>
+		AudioDeviceInfo(int index, wchar_t* name)
+		{
+			this->index = index;
+			this->name = gcnew System::String(name);
+		}
+
+		/// <summary>
+		/// <para>引数がAudioDeviceList*型のコンストラクタ</para>
+		/// </summary>
+		/// <param name="data">AudioDeviceList*型のオーディオデバイスデータ</param>
+		/// <returns></returns>
+		AudioDeviceInfo(AudioDeviceList* data)
+		{
+			this->index = data->index;
+			this->name = gcnew System::String((const wchar_t*)data->nameU16);
+		}
+
+		/// <summary>
+		/// <para>デフォルトのコンストラクタ</para>
+		/// </summary>
+		/// <returns></returns>
+		AudioDeviceInfo()
+		{
+			this->index = -1;
+			this->name = "Default Audio Device";
+		}
+
+
+		/// <summary>
+		/// デストラクタ
+		/// </summary>
+		~AudioDeviceInfo()
+		{
+			delete this->name;
+			this->!AudioDeviceInfo();
+		}
+
+		/// <summary>
+		/// ファイナライザ
+		/// </summary>
+		!AudioDeviceInfo()
+		{
+		}
+	};
+
+	/// <summary>
+	/// オーディオデバイスデータコレクションのインターフェイス
+	/// </summary>
+	[Guid("B9FE6655-A3BE-49F0-A59D-60CCBD73938F")]
+	[InterfaceType(ComInterfaceType::InterfaceIsDual)] public interface class IAudioDeviceCollection : ICollection<AudioDeviceInfo^>
+	{
+		property int Count { int get(); };
+		int GetIndex(int index);
+		System::String ^GetName(int index);
+		AudioDeviceInfo ^GetItem(int index);
+		System::Collections::IEnumerator^ GetEnumerator(void);
+	};
+
+	/// <summary>
+	/// オーディオデバイスデータコレクション
+	/// </summary>
+	[ComVisible(true)]
+#if defined(_x64_)
+	[Guid("F142DED0-EB4C-412D-940F-3611BFC8DF73")]
+#else
+	[Guid("E52EBFEE-9D3D-49A3-9453-E2869BFD6255")]
+#endif
+	[ClassInterface(ClassInterfaceType::None)]
+	[ComDefaultInterface(IAudioDeviceCollection::typeid)] public ref class AudioDeviceCollection : IAudioDeviceCollection
+	{
+
+	internal:
+
+		/// <summary>
+		/// オーディオデバイスデータのリスト
+		/// </summary>
+		System::Collections::Generic::List<AudioDeviceInfo^>^ m_list = nullptr;
+
+		/// <summary>
+		/// <para>オーディオデバイスのリストがNULLでないかチェックする・</para>
+		/// <para>NULLならば例外を投げる。</para>
+		/// </summary>
+		void check_audio_device_list()
+		{
+			if (m_list == nullptr)
+			{
+				throw gcnew System::Exception("内部エラー：オーディオデバイスリストがNULLです。");
+			}
+		}
+
+		/// <summary>
+		/// <para>オーディオデバイスリストのインデックスの範囲をチェックする。</para>
+		/// <para>範囲がならば、例外を投げる。</para>
+		/// </summary>
+		/// <param name="index"></param>
+		void check_index(int index)
+		{
+			if (m_list == nullptr)
+			{
+				throw gcnew System::Exception("内部エラー：オーディオデバイスリストがNULLです。");
+			}
+
+			if (index < 0 || index >= m_list->Count)
+			{
+				throw gcnew System::Exception("インデックスが範囲外です。");
+			}
+		}
+
+	public:
+		/// <summary>
+		/// リストから要素を削除する。
+		/// </summary>
+		/// <param name="item">削除する要素</param>
+		/// <returns>削除が成功したかどうか</returns>
+		virtual bool Remove(AudioDeviceInfo ^item)
+		{
+			return m_list->Remove(item);
+		}
+
+		/// <summary>
+		/// リストをコピーする
+		/// </summary>
+		/// <param name="arr">コピー先</param>
+		/// <param name="arrIndex">コピーを開始するインデックス</param>
+		virtual void CopyTo(array<AudioDeviceInfo^>^ arr, int arrIndex)
+		{
+			m_list->CopyTo(arr, arrIndex);
+		}
+
+		/// <summary>
+		/// 指定要素を含むかどうかを調べる。
+		/// </summary>
+		/// <param name="item">調べる要素</param>
+		/// <returns>含んでいるかどうか</returns>
+		virtual bool Contains(AudioDeviceInfo ^item)
+		{
+			return m_list->Contains(item);
+		}
+
+		/// <summary>
+		/// オーディオデバイスデータを追加する。
+		/// </summary>
+		/// <param name="item"></param>
+		virtual void Add(AudioDeviceInfo ^item)
+		{
+			return m_list->Add(item);
+		}
+
+		/// <summary>
+		/// AudioDeviceList型の要素からオーディオデバイスデータを作り、追加する。
+		/// </summary>
+		/// <param name="data"></param>
+		virtual void Add(AudioDeviceList* data)
+		{
+			AudioDeviceInfo ^item = gcnew AudioDeviceInfo(data);
+			return m_list->Add(item);
+		}
+
+		/// <summary>
+		/// このコレクションのがリードオンリー属性
+		/// </summary>
+		property bool IsReadOnly
+		{
+			/// <summary>
+			/// <para>リードオンリー属性を取得する。</para>
+			/// <para>偽に固定</para>
+			/// </summary>
+			/// <returns>偽</returns>
+			virtual bool get()
+			{
+				return false;
+			}
+		}
+
+		/// <summary>
+		/// GetEnumeratorの実装
+		/// </summary>
+		/// <returns></returns>
+		virtual System::Collections::IEnumerator^ GetEnumerator() = System::Collections::IEnumerable::GetEnumerator
+		{
+			return m_list->GetEnumerator();
+		}
+
+		/// <summary>
+		/// Generic型指定のGetEnumeratorの実装
+		/// </summary>
+		/// <returns></returns>
+		virtual System::Collections::Generic::IEnumerator<AudioDeviceInfo^>^ GetEnumerator_generic() = System::Collections::Generic::IEnumerable<AudioDeviceInfo^>::GetEnumerator
+		{
+			return m_list->GetEnumerator();
+		}
+
+		/// <summary>
+		/// <para>デフォルトインデクサ</para>
+		/// <para>インデックスを使って配列のように要素にアクセスする</para>
+		/// </summary>
+		property AudioDeviceInfo ^default[int]
+		{
+			/// <summary>
+			/// 要素を取得する
+			/// </summary>
+			/// <param name="index">インデックス</param>
+			/// <returns>オーディオデバイスデータへのポインタ</returns>
+			AudioDeviceInfo ^get(int index) {
+				check_audio_device_list();
+				check_index(index);
+				return m_list[index];
+			}
+		}
+
+		/// <summary>
+		/// 初期化配列有りのコンストラクタ
+		/// </summary>
+		/// <param name="data">初期化リスト</param>
+		AudioDeviceCollection(array<AudioDeviceInfo^> ^ data)
+		{
+			m_list = gcnew System::Collections::Generic::List<AudioDeviceInfo^>();
+			m_list->AddRange(data);
+		}
+
+		/// <summary>
+		/// コンストラクタ
+		/// </summary>
+		AudioDeviceCollection()
+		{
+			m_list = gcnew System::Collections::Generic::List<AudioDeviceInfo^>();
+		}
+
+		/// <summary>
+		/// デストラクタ
+		/// </summary>
+		~AudioDeviceCollection()
+		{
+			m_list->Clear();
+		}
+
+		/// <summary>
+		/// ファイナライザ
+		/// </summary>
+		!AudioDeviceCollection()
+		{
+		}
+
+		/// <summary>
+		/// 指定されたインデックスのオーディオデバイスデータを取得する
+		/// </summary>
+		/// <param name="index">配列添え字</param>
+		/// <returns>オーディオデバイスデータ</returns>
+		virtual AudioDeviceInfo ^GetItem(int index) {
+			check_audio_device_list();
+			check_index(index);
+			return m_list[index];
+		}
+
+		/// <summary>
+		/// 指定されたインデックスのオーディオデバイスのインデックスを取得する
+		/// </summary>
+		/// <param name="index">配列添え字</param>
+		/// <returns>パス文字列</returns>
+		virtual int GetIndex(int index) {
+			check_audio_device_list();
+			check_index(index);
+			return m_list[index]->index;
+		}
+
+		/// <summary>
+		/// 指定されたインデックスのオーディオデバイスの名前を取得する
+		/// </summary>
+		/// <param name="index"></param>
+		/// <returns></returns>
+		virtual System::String ^GetName(int index) {
+			check_audio_device_list();
+			check_index(index);
+			return m_list[index]->name;
+		}
+
+		/// <summary>
+		/// 音響モデルファイルコレクションをクリアする
+		/// </summary>
+		virtual void Clear(void)
+		{
+			check_audio_device_list();
+			m_list->Clear();
+		}
+
+		/// <summary>
+		/// オーディオデバイスコレクションの数
+		/// </summary>
+		property int Count
+		{
+			/// <summary>
+			/// オーディオデバイスコレクションの数を取得する
+			/// </summary>
+			/// <returns></returns>
+			virtual int get()
+			{
+				check_audio_device_list();
+				return m_list->Count;
+			}
+		}
+	};
+
+	/// <summary>
 	/// <para>TTSのためのインターフェイス</para>
 	/// </summary>
 	[Guid("6EEAAEE7-DD5F-44DD-A32F-A30A148E6D7A")]
@@ -572,6 +972,21 @@ namespace JTalkCom
 	};
 
 	/// <summary>
+	/// <para>TTSのためのインターフェイス</para>
+	/// </summary>
+	[Guid("D929C415-D51B-418C-85FC-9F4C55488610")]
+	[InterfaceType(ComInterfaceType::InterfaceIsDual)] public interface class IJTalkTTS2 : IJTalkTTS
+	{
+		property int AudioOutputDevice
+		{
+			void set(int value);
+			int get();
+		}
+
+		property AudioDeviceCollection^ AudioOutputDevices { AudioDeviceCollection^ get(); }
+	};
+
+	/// <summary>
 	/// TTSクラス
 	/// </summary>
 	[ProgId("JTalk.TTS")]
@@ -586,7 +1001,7 @@ namespace JTalkCom
 	/// <summary>
 	/// OpenJTalk を用いた TextToSpeech を実現するクラス
 	/// </summary>
-	public ref class JTalkTTS : IJTalkTTS
+	public ref class JTalkTTS : IJTalkTTS2
 	{
 
 	internal:
@@ -601,6 +1016,13 @@ namespace JTalkCom
 		/// <para>JScriptで Enumerator() の引数に指定可能</para>
 		/// </summary>
 		VoiceCollection ^m_voiceCollection = nullptr;
+
+		/// <summary>
+		/// <para>オーディオデバイスデータのコレクション</para>
+		/// <para>VBScriptで For Each のグループに指定可能</para>
+		/// <para>JScriptで Enumerator() の引数に指定可能</para>
+		/// </summary>
+		AudioDeviceCollection^ m_audioDeviceCollection = nullptr;
 
 		/// <summary>
 		/// <para>openjtalk 構造体へのポインタがNULLかどうか調べる。</para>
@@ -652,6 +1074,45 @@ namespace JTalkCom
 		}
 
 		/// <summary>
+		/// <para>オーディオデバイスデータのリストを生成する。</para>
+		/// <para>使用後はdelete_audio_device_listを使って解放する。</para>
+		/// </summary>
+		void generate_audio_device_list()
+		{
+			check_openjtalk_object();
+
+			if (m_audioDeviceCollection)
+			{
+				m_audioDeviceCollection->Clear();
+			}
+			else
+			{
+				m_audioDeviceCollection = gcnew AudioDeviceCollection();
+			}
+			m_audioDeviceCollection->Add(gcnew AudioDeviceInfo());
+
+
+			AudioDeviceList* list = openjtalk_getAudioOutputDeviceListU16(m_openjtalk);
+			if (list)
+			{
+				for (AudioDeviceList* elem = list; elem != NULL; elem = elem->succ)
+				{
+					m_audioDeviceCollection->Add(elem);
+				}
+				openjtalk_clearAudioDeviceList(m_openjtalk, list);
+			}
+		}
+
+		/// <summary>
+		/// <para>オーディオデバイスデータのリストを解放する。</para>
+		/// </summary>
+		void delete_audio_device_list()
+		{
+			check_openjtalk_object();
+			m_audioDeviceCollection->Clear();
+		}
+
+		/// <summary>
 		/// <para>自分自身のパスを伝える</para>
 		/// </summary>
 		void set_own_path()
@@ -694,6 +1155,7 @@ namespace JTalkCom
 			m_openjtalk = openjtalk_initializeU16(voicePathPtr, dicPathPtr, voiceDirPathPtr);
 			check_openjtalk_object();
 			generate_voice_list();
+			generate_audio_device_list();
 		}
 
 		JTalkTTS(System::String ^voicePath, System::String ^dicPath)
@@ -713,6 +1175,7 @@ namespace JTalkCom
 			m_openjtalk = openjtalk_initializeU16(voicePathPtr, dicPathPtr, NULL);
 			check_openjtalk_object();
 			generate_voice_list();
+			generate_audio_device_list();
 		}
 
 		JTalkTTS(System::String ^voicePath)
@@ -727,6 +1190,7 @@ namespace JTalkCom
 			m_openjtalk = openjtalk_initializeU16(voicePathPtr, NULL, NULL);
 			check_openjtalk_object();
 			generate_voice_list();
+			generate_audio_device_list();
 		}
 
 		JTalkTTS()
@@ -735,6 +1199,7 @@ namespace JTalkCom
 			m_openjtalk = openjtalk_initializeU16(NULL, NULL, NULL);
 			check_openjtalk_object();
 			generate_voice_list();
+			generate_audio_device_list();
 		}
 
 		/// <summary>
@@ -743,6 +1208,7 @@ namespace JTalkCom
 		~JTalkTTS()
 		{
 			delete_voice_list();
+			delete_audio_device_list();
 			delete m_voiceCollection;
 			this->!JTalkTTS();
 		}
@@ -781,6 +1247,8 @@ namespace JTalkCom
 		{
 			check_openjtalk_object();
 			openjtalk_refresh(m_openjtalk);
+			delete_audio_device_list();
+			generate_audio_device_list();
 		}
 
 		/// <summary>
@@ -1016,6 +1484,20 @@ namespace JTalkCom
 			/// <returns>利用可能な音響モデルファイルコレクション</returns>
 			virtual VoiceCollection ^get() {
 				return m_voiceCollection;
+			}
+		}
+
+		/// <summary>
+		/// オーディオ出力デバイスのコレクション
+		/// </summary>
+		property AudioDeviceCollection ^
+			AudioOutputDevices {
+			/// <summary>
+			/// オーディオ出力デバイスのコレクションを取得する
+			/// </summary>
+			/// <returns>利用可能な音響モデルファイルコレクション</returns>
+			virtual AudioDeviceCollection ^get() {
+				return m_audioDeviceCollection;
 			}
 		}
 
@@ -1475,6 +1957,28 @@ namespace JTalkCom
 			virtual double get()
 			{
 				return Volume;
+			}
+		}
+
+		/// <summary>
+		/// <para>プロパティ：オーディオ出力デバイス</para>
+		/// </summary>
+		property int AudioOutputDevice
+		{
+			/// <summary>
+			/// <para>オーディオ出力デバイスの設定</para>
+			/// </summary>
+			/// <param name="value">オーディオ出力デバイスのインデックス値</param>
+			virtual void set(int value)
+			{
+				check_openjtalk_object();
+				openjtalk_setAudioOutputDevice(m_openjtalk, value);
+			}
+
+			virtual int get()
+			{
+				check_openjtalk_object();
+				return openjtalk_getAudioOutputDevice(m_openjtalk);
 			}
 		}
 

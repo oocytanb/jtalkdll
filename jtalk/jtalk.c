@@ -150,6 +150,7 @@ typedef struct OpenJTalk_tag
 	double additional_half_tone;
 	double volume;
 	size_t audio_buff_size;
+	PaDeviceIndex audio_output_device_index;
 
 	// エラー内容を表す番号
 	OpenjtalkErrors errorCode;
@@ -3329,7 +3330,10 @@ void speak_sync(OpenJTalk *oj)
 	PaStream *stream;
 	PaError err;
 
-	outputParameters.device = Pa_GetDefaultOutputDevice();
+	outputParameters.device = oj->audio_output_device_index >= 0 ?
+		oj->audio_output_device_index :
+		Pa_GetDefaultOutputDevice();
+
 	if (outputParameters.device == paNoDevice)
 	{
 		goto exit_func;
@@ -3500,7 +3504,10 @@ void speak_async(OpenJTalk *oj)
 	PaStream *stream;
 	PaError err;
 
-	outputParameters.device = Pa_GetDefaultOutputDevice();
+	outputParameters.device = oj->audio_output_device_index >= 0 ?
+		oj->audio_output_device_index :
+		Pa_GetDefaultOutputDevice();
+
 	if (outputParameters.device == paNoDevice)
 	{
 		goto exit_func;
@@ -5044,6 +5051,129 @@ OPENJTALK_DLL_API unsigned int OPENJTALK_CONVENTION openjtalk_getHTSVoiceCount(O
 }
 
 /******************************************************************
+** EXPORT関数定義（オーディオデバイス関連）
+*/
+
+typedef void (*copy_audio_device_name_x)(AudioDeviceList *elem, const char *source);
+
+static void copy_audio_device_name_u8(AudioDeviceList *elem, const char *source)
+{
+	size_t size = strlen(source);
+	char *buf = (char*)malloc(sizeof(char) * (size + 1));
+	if (!buf)
+	{
+		g_lastError = OPENJTALKERROR_MALLOC_ERROR;
+		return;
+	}
+
+	strncpy(buf, source, size + 1);
+	elem->name = buf;
+}
+
+static void copy_audio_device_name_sjis(AudioDeviceList *elem, const char *source)
+{
+	elem->nameSjis = u8tosjis(source);
+}
+
+static void copy_audio_device_name_u16(AudioDeviceList *elem, const char *source)
+{
+	elem->nameU16 = u8tou16(source);
+}
+
+static AudioDeviceList *OPENJTALK_CONVENTION openjtalk_getAudioOutputDeviceList_impl(OpenJTalk *oj, copy_audio_device_name_x pf)
+{
+	if (!oj)
+	{
+		g_lastError = OPENJTALKERROR_OBJECT_POINTER_IS_NULL;
+		return NULL;
+	}
+
+	AudioDeviceList *list = NULL;
+	AudioDeviceList *last = NULL;
+
+	PaDeviceIndex count = Pa_GetDeviceCount();
+	for (PaDeviceIndex i = 0; i < count; ++i)
+	{
+		const PaDeviceInfo* info = Pa_GetDeviceInfo(i);
+		if (info && info->maxOutputChannels >= 1)
+		{
+			AudioDeviceList* elem = (AudioDeviceList*)malloc(sizeof(AudioDeviceList));
+			if (!elem)
+			{
+				g_lastError = OPENJTALKERROR_MALLOC_ERROR;
+				return NULL;
+			}
+
+			*elem = (AudioDeviceList){ NULL };
+			elem->index = i;
+
+			pf(elem, info->name);
+			if (!elem->name)
+			{
+				g_lastError = OPENJTALKERROR_MALLOC_ERROR;
+				return NULL;
+			}
+
+			if (last)
+			{
+				last->succ = elem;
+			}
+			else
+			{
+				list = elem;
+			}
+			last = elem;
+		}
+	}
+
+	return list;
+}
+
+OPENJTALK_DLL_API AudioDeviceList *OPENJTALK_CONVENTION openjtalk_getAudioOutputDeviceList(OpenJTalk *oj)
+{
+	return openjtalk_getAudioOutputDeviceList_impl(oj, copy_audio_device_name_u8);
+}
+
+
+OPENJTALK_DLL_API AudioDeviceList *OPENJTALK_CONVENTION openjtalk_getAudioOutputDeviceListSjis(OpenJTalk *oj)
+{
+	return openjtalk_getAudioOutputDeviceList_impl(oj, copy_audio_device_name_sjis);
+}
+
+OPENJTALK_DLL_API AudioDeviceList *OPENJTALK_CONVENTION openjtalk_getAudioOutputDeviceListU16(OpenJTalk *oj)
+{
+	return openjtalk_getAudioOutputDeviceList_impl(oj, copy_audio_device_name_u16);
+}
+
+OPENJTALK_DLL_API void OPENJTALK_CONVENTION openjtalk_clearAudioDeviceList(OpenJTalk *oj, AudioDeviceList *list)
+{
+	if (!oj)
+	{
+		g_lastError = OPENJTALKERROR_OBJECT_POINTER_IS_NULL;
+		return;
+	}
+
+	AudioDeviceList* elem = list;
+
+	while (elem)
+	{
+		AudioDeviceList* next = elem->succ;
+
+		if (elem->name)
+		{
+			elem->name[0] = '\0';
+		}
+
+		if (elem->name)
+		{
+			free(elem->name);
+		}
+
+		elem = next;
+	}
+}
+
+/******************************************************************
 ** EXPORT関数定義（一般）
 */
 
@@ -5131,6 +5261,8 @@ OpenJTalk *openjtalk_initialize_sub(const char *voice, const char *dic, const ch
 	{
 		return NULL;
 	}
+
+	oj->audio_output_device_index = paNoDevice;
 
 	return oj;
 }
@@ -5866,7 +5998,7 @@ OPENJTALK_DLL_API double OPENJTALK_CONVENTION openjtalk_getMsdThreshold(OpenJTal
 
 	oj->errorCode = OPENJTALKERROR_NO_ERROR;
 	bool error;
-	double res = Open_JTalk_get_msd_threshold(oj->open_jtalk, 0, &error);
+	double res = Open_JTalk_get_msd_threshold(oj->open_jtalk, 1, &error);
 	if (error)
 	{
 		oj->errorCode = OPENJTALKERROR_OBJECT_POINTER_IS_NULL;
@@ -6972,6 +7104,29 @@ OPENJTALK_DLL_API char16_t *OPENJTALK_CONVENTION openjtalk_getFullVoicePathU16(O
 #endif
 	free(temp2);
 	return res2;
+}
+
+OPENJTALK_DLL_API void OPENJTALK_CONVENTION openjtalk_setAudioOutputDevice(OpenJTalk *oj, int device_index)
+{
+	if (!oj)
+	{
+		g_lastError = OPENJTALKERROR_OBJECT_POINTER_IS_NULL;
+		return;
+	}
+
+	oj->errorCode = OPENJTALKERROR_NO_ERROR;
+	oj->audio_output_device_index = device_index >= 0 ? device_index : paNoDevice;
+}
+
+OPENJTALK_DLL_API int OPENJTALK_CONVENTION openjtalk_getAudioOutputDevice(OpenJTalk *oj)
+{
+	if (!oj)
+	{
+		g_lastError = OPENJTALKERROR_OBJECT_POINTER_IS_NULL;
+		return paNoDevice;
+	}
+
+	return oj->audio_output_device_index;
 }
 
 OPENJTALK_DLL_API void OPENJTALK_CONVENTION openjtalk_test(OpenJTalk *oj, void *text)

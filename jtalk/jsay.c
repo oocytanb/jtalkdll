@@ -3,6 +3,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
+#include <errno.h>
+#include <limits.h>
 #if defined(_WIN32) && !defined(__CYGWIN__) && !defined(__MINGW32__)
 #include <io.h>
 #else
@@ -14,6 +16,7 @@
 #define MAX_LENGTH 1000
 
 char voice[MAX_PATH];
+char audio_device[MAX_PATH];
 char infile[MAX_PATH];
 char outfile[MAX_PATH];
 char message[MAX_PATH];
@@ -21,7 +24,7 @@ char message[MAX_PATH];
 void usage_exit()
 {
 	fprintf(stderr, "jsay - Convert text to audible japanese speech\n");
-	fprintf(stderr, "Usage: jsay [-v voice/?] [-o outfile(wav)] [-f in | message]\n\n");
+	fprintf(stderr, "Usage: jsay [-v voice/?] [-a audio_device_index_or_name/?] [-o outfile(wav)] [-f in | message]\n\n");
 	jtalkdll_copyright();
 	exit(EXIT_FAILURE);
 }
@@ -143,6 +146,21 @@ int get_option(int argc, char *argv[])
 				}
 				break;
 
+			case 'a':
+				if (strlen(argv[i]) > 2)
+				{
+					strcpy(audio_device, &argv[i][2]);
+				}
+				else
+				{
+					if (i + 1 >= argc)
+					{
+						error_exit("option requires an argument -- a");
+					}
+					strcpy(audio_device, argv[++i]);
+				}
+				break;
+
 			case 'o':
 				if (strlen(argv[i]) > 2)
 				{
@@ -232,6 +250,68 @@ void print_voice_list(OpenJTalk *openjtalk)
 			strcat(padding, " ");
 		}
 		printf("%s%s%s\n", (char*)list->name, padding, (char*)list->path);
+	}
+}
+
+int resolve_audio_device_index(OpenJTalk *openjtalk, const char* audio_device_str)
+{
+	if (!audio_device_str)
+	{
+		return -1;
+	}
+
+	errno = 0;
+	char *end_ptr = NULL;
+	long index = strtol(audio_device_str, &end_ptr, 10);
+	if (index >= INT_MIN && index <= INT_MAX && errno == 0 &&
+		end_ptr != audio_device_str && *end_ptr == '\0')
+	{
+		return (int)index;
+	}
+	else
+	{
+#if defined(_WIN32)
+		AudioDeviceList *list = openjtalk_getAudioOutputDeviceListSjis(openjtalk);
+#else
+		AudioDeviceList *list = openjtalk_getAudioOutputDeviceList(openjtalk);
+#endif
+		if (list)
+		{
+			int i = -1;
+			for (AudioDeviceList *elem = list; elem != NULL; elem = elem->succ)
+			{
+				if (strcmp(audio_device_str, elem->name) == 0)
+				{
+					i = elem->index;
+					break;
+				}
+			}
+
+			openjtalk_clearAudioDeviceList(openjtalk, list);
+			return i;
+		}
+		else
+		{
+			return -1;
+		}
+	}
+}
+
+void print_audio_device_list(OpenJTalk *openjtalk)
+{
+#if defined(_WIN32)
+	AudioDeviceList *list = openjtalk_getAudioOutputDeviceListSjis(openjtalk);
+#else
+	AudioDeviceList *list = openjtalk_getAudioOutputDeviceList(openjtalk);
+#endif
+	if (list)
+	{
+		for (AudioDeviceList *elem = list; elem != NULL; elem = elem->succ)
+		{
+			printf("%d: %s\n", elem->index, elem->name);
+		}
+
+		openjtalk_clearAudioDeviceList(openjtalk, list);
 	}
 }
 
@@ -431,6 +511,18 @@ int main(int argc, char *argv[])
 			openjtalk_clear(openjtalk);
 			exit(EXIT_FAILURE);
 		}
+	}
+
+	if (audio_device != NULL && strlen(audio_device) > 0)
+	{
+		if (audio_device[0] == '?' && audio_device[1] == '\0')
+		{
+			print_audio_device_list(openjtalk);
+			goto exit_success;
+		}
+
+		int device_index = resolve_audio_device_index(openjtalk, audio_device);
+		openjtalk_setAudioOutputDevice(openjtalk, device_index);
 	}
 
 	if (message != NULL && strlen(message) > 0)

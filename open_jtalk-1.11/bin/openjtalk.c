@@ -355,7 +355,7 @@ double Open_JTalk_get_msd_threshold(Open_JTalk *open_jtalk, size_t i, bool *erro
 		}
 		return 0;
 	}
-	if (i != 0)
+	if (i != 0 && i != 1)
 	{
 		if (error)
 		{

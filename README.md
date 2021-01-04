@@ -205,15 +205,19 @@ vcxprojを出力して実行する方法は次の通りです。必要な場合�
 vs2019で64ビット版をビルドする
 
 ```DOS:
-cmake .. -G "Visual Studio 15 2019 Win64"
+mkdir build.dir
+cd build.dir
+cmake .. -G "Visual Studio 16 2019" -A x64
 msbuild ALL_BUILD.vcxproj /p:Configuration=Release;Platform=x64
 ```
 
 vs2019で32ビット版をビルドする
 
 ```DOS:
-cmake .. -G "Visual Studio 15 2019"
-msbuild ALL_BUILD.vcxproj /p:Configuration=Release;Platform=win32
+mkdir build.dir
+cd build.dir
+cmake .. -G "Visual Studio 16 2019" -A Win32
+msbuild ALL_BUILD.vcxproj /p:Configuration=Release;Platform=Win32
 ```
 
 インストールが完了したら、[動作確認](#validation)を参考に、動作するかどうか確認してみてください。 
